@@ -1,6 +1,7 @@
+import os
 import re
 from io import StringIO
-from typing import Optional
+from typing import List, Optional
 
 import pandas as pd
 
@@ -108,3 +109,32 @@ def get_original_files(sections: dict) -> dict:
 
 def get_sample_information(sections: dict) -> dict:
     return parse_meta(sections, "Sample Information", nrows=None)
+
+
+def combine_compound_concentrations(file_paths: List[str]) -> pd.DataFrame:
+    """Combine a list of result files into a table of concentrations of compounds detected in each experiment."""
+
+    compound_names = None
+    filenames = []
+    rows = []
+
+    for path in file_paths:
+        filename = os.path.basename(path)
+        sections = parse_sections(path)
+        compounds = get_compound_table(sections, detector="B")
+
+        if compound_names is None:
+            compound_names = compounds["Name"]
+        else:
+            assert compound_names.equals(
+                compounds["Name"]
+            ), "Compound list mismatches between experiments"
+
+        filenames.append(filename)
+        concentrations = compounds["Conc."]
+        rows.append(concentrations)
+
+    colnames = ["Sample"] + compound_names.tolist()
+    rows = [[filename] + concs.tolist() for filename, concs in zip(filenames, rows)]
+
+    return pd.DataFrame(rows, columns=colnames)
