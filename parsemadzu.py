@@ -1,18 +1,16 @@
 import os
 import re
 from io import StringIO
-from typing import List, Optional
+from typing import List, Optional, TextIO
 
 import pandas as pd
 
 re_sections = re.compile(r"\[(.*)\]")
 
 
-def parse_sections(file_path: str) -> dict:
+def parse_sections(f: TextIO) -> dict:
     """Parse a Shimadzu ASCII-export file into sections."""
-
-    with open(file_path) as f:
-        fulltext = f.read()
+    fulltext = f.read()
 
     # Split file into sections using section header pattern
     split = re_sections.split(fulltext)
@@ -56,7 +54,7 @@ def get_peak_table(sections: dict, detector: str = "A") -> Optional[pd.DataFrame
     table = parse_table(sections, section_name, skiprows=1)
 
     assert (
-        int(meta["# of Peaks"]) == table.shape[0]
+        table is None or int(meta["# of Peaks"]) == table.shape[0]
     ), "Declared number of peaks and table size differ"
 
     return table
@@ -68,7 +66,7 @@ def get_compound_table(sections: dict, detector: str = "A") -> Optional[pd.DataF
     table = parse_table(sections, section_name, skiprows=1)
 
     assert (
-        int(meta["# of IDs"]) == table.shape[0]
+        table is None or int(meta["# of IDs"]) == table.shape[0]
     ), "Declared number of compounds and table size differ"
 
     return table
@@ -109,32 +107,3 @@ def get_original_files(sections: dict) -> dict:
 
 def get_sample_information(sections: dict) -> dict:
     return parse_meta(sections, "Sample Information", nrows=None)
-
-
-def combine_compound_concentrations(file_paths: List[str]) -> pd.DataFrame:
-    """Combine a list of result files into a table of concentrations of compounds detected in each experiment."""
-
-    compound_names = None
-    filenames = []
-    rows = []
-
-    for path in file_paths:
-        filename = os.path.basename(path)
-        sections = parse_sections(path)
-        compounds = get_compound_table(sections, detector="B")
-
-        if compound_names is None:
-            compound_names = compounds["Name"]
-        else:
-            assert compound_names.equals(
-                compounds["Name"]
-            ), "Compound list mismatches between experiments"
-
-        filenames.append(filename)
-        concentrations = compounds["Conc."]
-        rows.append(concentrations)
-
-    colnames = ["Sample"] + compound_names.tolist()
-    rows = [[filename] + concs.tolist() for filename, concs in zip(filenames, rows)]
-
-    return pd.DataFrame(rows, columns=colnames)
