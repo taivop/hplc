@@ -40,7 +40,7 @@ def parse_table(
     table_str = sections[section_name]
 
     # Count number of non-empty lines
-    num_lines = len([l for l in re.split("\n+", table_str) if len(l)])
+    num_lines = len([l for l in re.split("[\r\n]+", table_str) if len(l)])
 
     if num_lines <= 1:
         return None
